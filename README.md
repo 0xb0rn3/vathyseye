@@ -1,4 +1,3 @@
-# vathyseye
 # VathysEye
 
 ```
@@ -88,10 +87,5 @@ VathysEye is created by b0urn3
 - Instagram: [@onlybyhive](https://www.instagram.com/onlybyhive)
 - GitHub: [q4n0](https://github.com/q4n0)
 
-## License
-
-This project is licensed under the MIT License - see the [LICENSE](LICENSE) file for details.
-
-## Disclaimer
-
-This tool is for educational and ethical use only. The creator and contributors are not responsible for any misuse or damage caused by this program. Always ensure you have permission to search and access the systems and files you are targeting.
+#Caution:
+This tool is for educational and ethical use only and also not provided with no warranty. The creator and contributors are not responsible for any misuse or damage caused by this program. Always ensure you have permission to search and access the systems and files you are targeting.
