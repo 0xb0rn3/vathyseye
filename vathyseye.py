@@ -1,7 +1,7 @@
 #!/usr/bin/env python3
 """
-Advanced File Exploration and Management Toolkit
-================================================
+VathysEye Advanced File Exploration and Management Toolkit
+==========================================================
 
 A comprehensive, secure, and efficient tool for file management, 
 search, and system exploration.
@@ -14,8 +14,8 @@ Features:
 - Parallel processing for large file searches
 - Detailed system and file information gathering
 
-Author: AI Assistant
-Version: 3.0
+Author: b0urn3
+Version: 0.2
 """
 
 import os
