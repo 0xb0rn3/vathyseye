@@ -1,4 +1,8 @@
-# VathysEye
+# VathysEye 👁️
+
+## Overview
+
+VathysEye is an advanced file search and indexing system designed to help you quickly locate and categorize files across your system. With powerful search capabilities, intelligent file categorization, and a user-friendly interface, VathysEye makes file management and discovery effortless.
 
 ```
 ⠀⠀⠀⠀⠀⠀⢀⠀⠀⠀⠀⠀⠀⢠⡆⠀⠀⠀⠀⠀⠀⡀⠀⠀⠀⠀⠀⠀⠀⠀
@@ -10,82 +14,102 @@
 ⠀⢀⣼⣿⣿⠟⠁⢠⣿⣿⠏⠀⠀⢠⣤⣤⡀⠀⠀⢻⣿⣿⡀⠙⢿⣿⣿⣦⠀⠀
 ⣰⣿⣿⡟⠁⠀⠀⢸⣿⣿⠀⠀⠀⢿⣿⣿⡟⠀⠀⠈⣿⣿⡇⠀⠀⠙⣿⣿⣷⡄
 ⠈⠻⣿⣿⣦⣄⠀⠸⣿⣿⣆⠀⠀⠀⠉⠉⠀⠀⠀⣸⣿⣿⠃⢀⣤⣾⣿⣿⠟⠁
-⠀⠀⠈⠻⣿⣿⣿⣶⣿⣿⣿⣦⣄⠀⠀⠀⢀⣠⣾⣿⣿⣿⣾⣿⣿⡿⠋⠁⠀⠀
-⠀⠀⠀⠀⠀⠙⠻⢿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⣿⠿⠛⠁⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠀⠈⠉⠛⠛⠿⠿⠿⠿⠿⠿⠿⠿⠛⠋⠉⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⢰⣷⡦⠀⠀⠀⢀⣀⣀⠀⠀⠀⢴⣾⡇⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⣸⠟⠁⠀⠀⠀⠘⣿⡇⠀⠀⠀⠀⠙⢷⠀⠀⠀⠀⠀⠀⠀⠀
-⠀⠀⠀⠀⠀⠀⠀⠁⠀⠀⠀⠀⠀⠀⠻⠀⠀⠀⠀⠀⠀⠈⠀⠀⠀⠀⠀⠀⠀⠀
-
                   VathysEye
         IF IT EXISTS I'LL FIND IT
 ```
 
-## Description
-
-VathysEye is an advanced deep search tool designed to help you find files and content across local and remote systems. With its powerful features, VathysEye allows you to perform case-insensitive searches, filter by file extensions, and even search within file contents using regular expressions.
-
 ## Features
 
-- Local file system search
-- Remote SSH file system search
-- Permission-based file search
-- Case-insensitive file name and content matching
-- File extension filtering
-- File content searching using regex patterns
-- Maximum file size filtering
-- Results saving in various formats (JSON, CSV, TXT)
+- 🔍 **Advanced File Search**: Quickly find files using flexible search patterns
+- 📂 **Intelligent File Categorization**: Automatically categorize files into types like video, image, document, archive, and more
+- 💾 **SQLite Database Indexing**: Efficient file metadata tracking with comprehensive indexing
+- 🌐 **Cross-Platform Support**: Works on multiple Linux distributions (apt, dnf, yum, pacman)
+- 🔄 **Auto-Update Mechanism**: One-click updates directly from GitHub
+- 🖥️ **Interactive Search Mode**: User-friendly interface for file discovery
+
+## Requirements
+
+- Bash
+- SQLite3
+- `file` utility
+- `find`
+- `grep`
+- `curl`
 
 ## Installation
 
 1. Clone the repository:
-   ```
-   git clone https://github.com/q4n0/VathysEye.git
-   ```
-
-2. Navigate to the project directory:
-   ```
-   cd VathysEye
+   ```bash
+   git clone https://github.com/0xb0rn3/vathyseye.git
+   cd vathyseye
    ```
 
-3. Install the required dependencies:
-   ```
-   pip install -r requirements.txt
+2. Make the script executable:
+   ```bash
+   chmod +x run
    ```
 
 ## Usage
 
-Run the script:
+### Basic Commands
 
-```
-python vathyseye.py
-```
+- **Interactive Search**: 
+  ```bash
+  ./run interactive
+  ```
 
-Follow the interactive prompts to choose your search options:
+- **Search Files**: 
+  ```bash
+  ./run search [pattern]
+  ```
 
-1. Local Search
-2. Permission Search
-3. SSH Search
-4. Exit
+- **Full System Indexing**:
+  ```bash
+  ./run index
+  ```
 
-For each search type, you'll be prompted to enter relevant information such as:
+- **Update VathysEye**:
+  ```bash
+  ./run update
+  ```
 
-- Directory to search
-- File name pattern (regex)
-- File extensions to include
-- Content pattern to search within files (regex, optional)
-- Maximum file size to consider (optional)
+## How It Works
 
-## Output
+VathysEye uses a sophisticated approach to file indexing and searching:
 
-VathysEye will display the search results in the console and offer the option to save the results in JSON, CSV, or TXT format.
+1. **Dependency Check**: Automatically checks and installs required tools
+2. **Database Initialization**: Creates a SQLite database for efficient file tracking
+3. **Intelligent Categorization**: Uses MIME types to classify files
+4. **Flexible Search**: Supports regex-based searching with optional depth and category filters
 
-## Creator
+## Configuration
 
-VathysEye is created by b0urn3
+- **Configuration Directory**: `~/.config/vathyseye`
+- **Cache Directory**: `~/.cache/vathyseye`
+- **Database Path**: `~/.cache/vathyseye/vathyseye.db`
+- **Log File**: `~/.cache/vathyseye/vathyseye.log`
 
-- Instagram: [@onlybyhive](https://www.instagram.com/onlybyhive)
-- GitHub: [q4n0](https://github.com/q4n0)
+## Logging
 
-# Caution:
-This tool is for educational and ethical use only and also not provided with NO WARRANTY. The creator and contributors are not responsible for any misuse or damage caused by this program. Always ensure you have permission to search and access the systems and files you are targeting.
+VathysEye provides comprehensive logging with color-coded output:
+- 🔴 ERROR: Critical issues
+- 🟡 WARN: Potential problems
+- 🟢 INFO: General information
+- 🔵 DEBUG: Detailed diagnostic information
+
+## Version
+
+Current Version: 2.5
+Author: 0xb0rn3
+
+## Contributing
+
+1. Fork the repository
+2. Create your feature branch
+3. Commit your changes
+4. Push to the branch
+5. Create a new Pull Request
+
+## Disclaimer
+
+VathysEye is provided as-is. Always ensure you have proper permissions when searching and indexing files.
