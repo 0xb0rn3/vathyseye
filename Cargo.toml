@@ -1,0 +1,11 @@
+// Cargo.toml dependencies:
+/*
+[package]
+name = "vathyseye"
+version = "3.0.0"
+edition = "2021"
+
+[dependencies]
+walkdir = "2.4"
+rayon = "1.8"
+*/
