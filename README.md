@@ -86,7 +86,7 @@ VathysEye 3.0 is a lightning-fast native file search engine built in Rust, desig
 ### Method 2: Direct Binary Installation
 ```bash
 # Download pre-compiled binary (when available)
-curl -L https://github.com/0xb0rn3/vathyseye/releases/latest/download/vathyseye-linux -o vath
+curl -L https://github.com/0xb0rn3/vathyseye/release/vathyseye -o vath
 chmod +x vath
 sudo mv vath /usr/local/bin/
 ```
