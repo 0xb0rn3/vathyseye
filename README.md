@@ -14,7 +14,7 @@ VathysEye 3.0 is a lightning-fast native file search engine built in Rust, desig
         ┌─────────────────────────────────────────────────────────────────┐
         │  🔍 LIGHTNING FAST NATIVE SEARCH ENGINE 🔍                      │
         │  ⚡ IF IT EXISTS, I'LL FIND IT IN NANOSECONDS ⚡                │
-        │  Author: 0xb0rn3 | 0xbv1  │  IG: theehiv3  │  Version: 3.0     │
+        │  Author: 0xb0rn3 | 0xbv1  │  IG: theehiv3  │  Version: 3.0      │
         └─────────────────────────────────────────────────────────────────┘
 ```
 
