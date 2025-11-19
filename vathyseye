@@ -8,6 +8,7 @@
 
 VERSION="4.0.0"
 AUTHOR="0xb0rn3 | 0xbv1"
+
 # Color codes
 readonly RED='\033[0;31m'
 readonly GREEN='\033[0;32m'
@@ -450,7 +451,8 @@ interactive_menu() {
         echo -e "${WHITE}0.${RESET} 🚪 Exit"
         echo -e "${CYAN}────────────────────────────────────────${RESET}"
         
-        read -p "$(echo -e ${MAGENTA}Select option: ${RESET})" choice
+        echo -en "${MAGENTA}Select option: ${RESET}"
+        read choice
         
         case "${choice}" in
             1) menu_search ;;
@@ -470,55 +472,75 @@ interactive_menu() {
 
 # Menu functions
 menu_search() {
-    read -p "$(echo -e ${CYAN}Enter search pattern: ${RESET})" pattern
-    read -p "$(echo -e ${CYAN}Search path [default: .]: ${RESET})" path
+    echo -en "${CYAN}Enter search pattern: ${RESET}"
+    read pattern
+    echo -en "${CYAN}Search path [default: .]: ${RESET}"
+    read path
     path="${path:-.}"
     
     fast_search "${pattern}" "${path}" | display_results
     
-    read -p "$(echo -e ${YELLOW}Press Enter to continue...${RESET})"
+    echo -en "${YELLOW}Press Enter to continue...${RESET}"
+    read
 }
 
 menu_copy() {
-    read -p "$(echo -e ${CYAN}Source file: ${RESET})" source
-    read -p "$(echo -e ${CYAN}Destination: ${RESET})" dest
+    echo -en "${CYAN}Source file: ${RESET}"
+    read source
+    echo -en "${CYAN}Destination: ${RESET}"
+    read dest
     file_copy "${source}" "${dest}"
-    read -p "$(echo -e ${YELLOW}Press Enter to continue...${RESET})"
+    echo -en "${YELLOW}Press Enter to continue...${RESET}"
+    read
 }
 
 menu_move() {
-    read -p "$(echo -e ${CYAN}Source file: ${RESET})" source
-    read -p "$(echo -e ${CYAN}Destination: ${RESET})" dest
+    echo -en "${CYAN}Source file: ${RESET}"
+    read source
+    echo -en "${CYAN}Destination: ${RESET}"
+    read dest
     file_move "${source}" "${dest}"
-    read -p "$(echo -e ${YELLOW}Press Enter to continue...${RESET})"
+    echo -en "${YELLOW}Press Enter to continue...${RESET}"
+    read
 }
 
 menu_rename() {
-    read -p "$(echo -e ${CYAN}File to rename: ${RESET})" source
-    read -p "$(echo -e ${CYAN}New name: ${RESET})" newname
+    echo -en "${CYAN}File to rename: ${RESET}"
+    read source
+    echo -en "${CYAN}New name: ${RESET}"
+    read newname
     file_rename "${source}" "${newname}"
-    read -p "$(echo -e ${YELLOW}Press Enter to continue...${RESET})"
+    echo -en "${YELLOW}Press Enter to continue...${RESET}"
+    read
 }
 
 menu_delete() {
-    read -p "$(echo -e ${CYAN}File/directory to delete: ${RESET})" target
+    echo -en "${CYAN}File/directory to delete: ${RESET}"
+    read target
     file_delete "${target}"
-    read -p "$(echo -e ${YELLOW}Press Enter to continue...${RESET})"
+    echo -en "${YELLOW}Press Enter to continue...${RESET}"
+    read
 }
 
 menu_compress() {
-    read -p "$(echo -e ${CYAN}Output archive name: ${RESET})" output
-    read -p "$(echo -e ${CYAN}Files to compress (space-separated): ${RESET})" files
+    echo -en "${CYAN}Output archive name: ${RESET}"
+    read output
+    echo -en "${CYAN}Files to compress (space-separated): ${RESET}"
+    read files
     compress_files "${output}" ${files}
-    read -p "$(echo -e ${YELLOW}Press Enter to continue...${RESET})"
+    echo -en "${YELLOW}Press Enter to continue...${RESET}"
+    read
 }
 
 menu_extract() {
-    read -p "$(echo -e ${CYAN}Archive to extract: ${RESET})" archive
-    read -p "$(echo -e ${CYAN}Destination [default: .]: ${RESET})" dest
+    echo -en "${CYAN}Archive to extract: ${RESET}"
+    read archive
+    echo -en "${CYAN}Destination [default: .]: ${RESET}"
+    read dest
     dest="${dest:-.}"
     extract_archive "${archive}" "${dest}"
-    read -p "$(echo -e ${YELLOW}Press Enter to continue...${RESET})"
+    echo -en "${YELLOW}Press Enter to continue...${RESET}"
+    read
 }
 
 menu_stats() {
@@ -527,14 +549,16 @@ menu_stats() {
     df -h | head -2
     echo -e "\n${BOLD}File Types:${RESET}"
     find . -type f 2>/dev/null | sed 's/.*\.//' | sort | uniq -c | sort -rn | head -10
-    read -p "$(echo -e ${YELLOW}Press Enter to continue...${RESET})"
+    echo -en "${YELLOW}Press Enter to continue...${RESET}"
+    read
 }
 
 menu_settings() {
     echo -e "\n${BOLD}${YELLOW}⚙️  SETTINGS${RESET}"
     echo -e "Configuration directory: ${VATHYS_DIR}"
     echo -e "Cache directory: ${VATHYS_CACHE}"
-    read -p "$(echo -e ${YELLOW}Press Enter to continue...${RESET})"
+    echo -en "${YELLOW}Press Enter to continue...${RESET}"
+    read
 }
 
 # Command-line interface
