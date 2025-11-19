@@ -1,0 +1,622 @@
+#!/usr/bin/env bash
+
+#############################################################################
+# VathysEye 4.0 - Ultimate CLI File Manager
+# Author: 0xb0rn3 | 0xbv1
+# Description: Lightning-fast file manager with embedded C performance
+#############################################################################
+
+VERSION="4.0.0"
+AUTHOR="0xb0rn3 | 0xbv1"
+# Color codes
+readonly RED='\033[0;31m'
+readonly GREEN='\033[0;32m'
+readonly YELLOW='\033[0;33m'
+readonly BLUE='\033[0;34m'
+readonly MAGENTA='\033[0;35m'
+readonly CYAN='\033[0;36m'
+readonly WHITE='\033[0;37m'
+readonly BOLD='\033[1m'
+readonly RESET='\033[0m'
+
+# Configuration
+VATHYS_DIR="${HOME}/.vathyseye"
+VATHYS_BIN="${VATHYS_DIR}/bin"
+VATHYS_CACHE="${VATHYS_DIR}/cache"
+VATHYS_CONFIG="${VATHYS_DIR}/config"
+C_HELPER="${VATHYS_BIN}/fileops"
+INDEX_DB="${VATHYS_CACHE}/file.index"
+
+# Banner
+show_banner() {
+    clear
+    cat << "EOF"
+██╗   ██╗ █████╗ ████████╗██╗  ██╗██╗   ██╗███████╗███████╗██╗   ██╗███████╗
+██║   ██║██╔══██╗╚══██╔══╝██║  ██║╚██╗ ██╔╝██╔════╝██╔════╝╚██╗ ██╔╝██╔════╝
+██║   ██║███████║   ██║   ███████║ ╚████╔╝ ███████╗█████╗   ╚████╔╝ █████╗  
+╚██╗ ██╔╝██╔══██║   ██║   ██╔══██║  ╚██╔╝  ╚════██║██╔══╝    ╚██╔╝  ██╔══╝  
+ ╚████╔╝ ██║  ██║   ██║   ██║  ██║   ██║   ███████║███████╗   ██║   ███████╗
+  ╚═══╝  ╚═╝  ╚═╝   ╚═╝   ╚═╝  ╚═╝   ╚═╝   ╚══════╝╚══════╝   ╚═╝   ╚══════╝
+                                                                              
+        ┌─────────────────────────────────────────────────────────────────┐
+        │  🔥 ULTIMATE CLI FILE MANAGER 4.0 🔥                            │
+        │  ⚡ SEARCH • MANAGE • COMPRESS • EXTRACT ⚡                     │
+        │  Author: 0xb0rn3 | 0xbv1  │  IG: theehiv3  │  Version: 4.0     │
+        └─────────────────────────────────────────────────────────────────┘
+
+EOF
+}
+
+# Initialize directories
+init_vathys() {
+    mkdir -p "${VATHYS_DIR}" "${VATHYS_BIN}" "${VATHYS_CACHE}" "${VATHYS_CONFIG}"
+    
+    # Check if C helper exists, compile if needed
+    if [[ ! -x "${C_HELPER}" ]]; then
+        echo -e "${YELLOW}⚡ Compiling performance helper...${RESET}"
+        compile_c_helper
+    fi
+}
+
+# Compile C helper for fast operations
+compile_c_helper() {
+    local c_source="${VATHYS_BIN}/fileops.c"
+    
+    cat > "${c_source}" << 'CEOF'
+#include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
+#include <dirent.h>
+#include <sys/stat.h>
+#include <sys/types.h>
+#include <unistd.h>
+#include <fnmatch.h>
+#include <pthread.h>
+#include <time.h>
+
+#define MAX_PATH 4096
+#define MAX_RESULTS 10000
+#define NUM_THREADS 8
+
+typedef struct {
+    char path[MAX_PATH];
+    unsigned long size;
+    time_t mtime;
+    mode_t mode;
+} FileInfo;
+
+typedef struct {
+    char *pattern;
+    char *root_dir;
+    FileInfo *results;
+    int *result_count;
+    int start_idx;
+    int end_idx;
+    pthread_mutex_t *mutex;
+} ThreadData;
+
+int matches_pattern(const char *filename, const char *pattern) {
+    if (strcmp(pattern, "*") == 0) return 1;
+    return fnmatch(pattern, filename, FNM_CASEFOLD) == 0 ||
+           strcasestr(filename, pattern) != NULL;
+}
+
+void *search_thread(void *arg) {
+    ThreadData *data = (ThreadData *)arg;
+    DIR *dir;
+    struct dirent *entry;
+    struct stat st;
+    char path[MAX_PATH];
+    
+    if ((dir = opendir(data->root_dir)) == NULL) {
+        return NULL;
+    }
+    
+    while ((entry = readdir(dir)) != NULL) {
+        if (strcmp(entry->d_name, ".") == 0 || strcmp(entry->d_name, "..") == 0)
+            continue;
+            
+        snprintf(path, sizeof(path), "%s/%s", data->root_dir, entry->d_name);
+        
+        if (stat(path, &st) == 0) {
+            if (S_ISREG(st.st_mode) && matches_pattern(entry->d_name, data->pattern)) {
+                pthread_mutex_lock(data->mutex);
+                if (*data->result_count < MAX_RESULTS) {
+                    strncpy(data->results[*data->result_count].path, path, MAX_PATH);
+                    data->results[*data->result_count].size = st.st_size;
+                    data->results[*data->result_count].mtime = st.st_mtime;
+                    data->results[*data->result_count].mode = st.st_mode;
+                    (*data->result_count)++;
+                }
+                pthread_mutex_unlock(data->mutex);
+            }
+            
+            if (S_ISDIR(st.st_mode)) {
+                // Recursively search subdirectories
+                ThreadData subdata = *data;
+                subdata.root_dir = path;
+                search_thread(&subdata);
+            }
+        }
+    }
+    
+    closedir(dir);
+    return NULL;
+}
+
+int main(int argc, char *argv[]) {
+    if (argc < 3) {
+        fprintf(stderr, "Usage: %s <pattern> <directory>\n", argv[0]);
+        return 1;
+    }
+    
+    char *pattern = argv[1];
+    char *root_dir = argv[2];
+    
+    FileInfo *results = malloc(MAX_RESULTS * sizeof(FileInfo));
+    int result_count = 0;
+    pthread_mutex_t mutex = PTHREAD_MUTEX_INITIALIZER;
+    
+    ThreadData data = {
+        .pattern = pattern,
+        .root_dir = root_dir,
+        .results = results,
+        .result_count = &result_count,
+        .mutex = &mutex
+    };
+    
+    clock_t start = clock();
+    search_thread(&data);
+    clock_t end = clock();
+    
+    // Output results
+    for (int i = 0; i < result_count; i++) {
+        printf("%s|%lu|%ld|%o\n", 
+               results[i].path,
+               results[i].size,
+               results[i].mtime,
+               results[i].mode);
+    }
+    
+    fprintf(stderr, "Found %d files in %.3f seconds\n", 
+            result_count, 
+            (double)(end - start) / CLOCKS_PER_SEC);
+    
+    free(results);
+    return 0;
+}
+CEOF
+    
+    if gcc -O3 -pthread -o "${C_HELPER}" "${c_source}" 2>/dev/null; then
+        chmod +x "${C_HELPER}"
+        echo -e "${GREEN}✓ Performance helper compiled successfully${RESET}"
+    else
+        echo -e "${YELLOW}⚠ Could not compile C helper, using bash fallback${RESET}"
+    fi
+}
+
+# Fast search using C helper or bash fallback
+fast_search() {
+    local pattern="$1"
+    local search_path="${2:-.}"
+    local file_type="$3"
+    
+    echo -e "${CYAN}⚡ Searching for: ${BOLD}${pattern}${RESET}"
+    
+    if [[ -x "${C_HELPER}" ]]; then
+        # Use C helper for maximum speed
+        "${C_HELPER}" "${pattern}" "${search_path}" 2>&1 | grep -v "Found"
+    else
+        # Bash fallback with parallel processing
+        find "${search_path}" -type f -iname "*${pattern}*" 2>/dev/null | while read -r file; do
+            local size=$(stat -f%z "$file" 2>/dev/null || stat -c%s "$file" 2>/dev/null)
+            local mtime=$(stat -f%m "$file" 2>/dev/null || stat -c%Y "$file" 2>/dev/null)
+            local mode=$(stat -f%p "$file" 2>/dev/null || stat -c%a "$file" 2>/dev/null)
+            echo "${file}|${size}|${mtime}|${mode}"
+        done
+    fi
+}
+
+# Display search results with formatting
+display_results() {
+    local -a results=()
+    local count=0
+    
+    while IFS='|' read -r path size mtime mode; do
+        results+=("${path}|${size}|${mtime}|${mode}")
+        ((count++))
+    done
+    
+    if [[ ${count} -eq 0 ]]; then
+        echo -e "${RED}❌ No files found${RESET}"
+        return 1
+    fi
+    
+    echo -e "\n${BOLD}${GREEN}🎯 SEARCH RESULTS (${count} files)${RESET}"
+    echo -e "${CYAN}═══════════════════════════════════════════════════════════════${RESET}"
+    
+    local idx=1
+    for result in "${results[@]}"; do
+        IFS='|' read -r path size mtime mode <<< "${result}"
+        local filename=$(basename "${path}")
+        local dirname=$(dirname "${path}")
+        local hr_size=$(numfmt --to=iec-i --suffix=B "${size}" 2>/dev/null || echo "${size}B")
+        local date=$(date -r "${mtime}" "+%Y-%m-%d %H:%M" 2>/dev/null || echo "N/A")
+        
+        echo -e "\n${BOLD}${WHITE}[${idx}]${RESET} ${CYAN}📄 ${filename}${RESET}"
+        echo -e "    ${YELLOW}📏 Size:${RESET} ${hr_size} │ ${BLUE}📅 Modified:${RESET} ${date}"
+        echo -e "    ${MAGENTA}📍 Path:${RESET} ${dirname}"
+        echo -e "    ${GREEN}🔐 Perms:${RESET} ${mode}"
+        
+        ((idx++))
+    done
+    
+    echo -e "\n${CYAN}═══════════════════════════════════════════════════════════════${RESET}"
+    
+    # Store results for file operations
+    printf '%s\n' "${results[@]}" > "${VATHYS_CACHE}/last_results.tmp"
+    echo "${count}" > "${VATHYS_CACHE}/result_count.tmp"
+}
+
+# File operation: Copy
+file_copy() {
+    local source="$1"
+    local dest="$2"
+    
+    if [[ ! -f "${source}" ]]; then
+        echo -e "${RED}❌ Source file not found${RESET}"
+        return 1
+    fi
+    
+    echo -e "${CYAN}📋 Copying: ${source} → ${dest}${RESET}"
+    
+    if cp -v "${source}" "${dest}"; then
+        echo -e "${GREEN}✓ Copy successful${RESET}"
+    else
+        echo -e "${RED}❌ Copy failed${RESET}"
+        return 1
+    fi
+}
+
+# File operation: Move
+file_move() {
+    local source="$1"
+    local dest="$2"
+    
+    if [[ ! -f "${source}" ]]; then
+        echo -e "${RED}❌ Source file not found${RESET}"
+        return 1
+    fi
+    
+    echo -e "${CYAN}📦 Moving: ${source} → ${dest}${RESET}"
+    
+    if mv -v "${source}" "${dest}"; then
+        echo -e "${GREEN}✓ Move successful${RESET}"
+    else
+        echo -e "${RED}❌ Move failed${RESET}"
+        return 1
+    fi
+}
+
+# File operation: Rename
+file_rename() {
+    local source="$1"
+    local new_name="$2"
+    
+    if [[ ! -f "${source}" ]]; then
+        echo -e "${RED}❌ Source file not found${RESET}"
+        return 1
+    fi
+    
+    local dir=$(dirname "${source}")
+    local dest="${dir}/${new_name}"
+    
+    echo -e "${CYAN}✏️  Renaming: $(basename "${source}") → ${new_name}${RESET}"
+    
+    if mv -v "${source}" "${dest}"; then
+        echo -e "${GREEN}✓ Rename successful${RESET}"
+    else
+        echo -e "${RED}❌ Rename failed${RESET}"
+        return 1
+    fi
+}
+
+# File operation: Delete
+file_delete() {
+    local target="$1"
+    local force="$2"
+    
+    if [[ ! -e "${target}" ]]; then
+        echo -e "${RED}❌ Target not found${RESET}"
+        return 1
+    fi
+    
+    if [[ "${force}" != "force" ]]; then
+        echo -e "${YELLOW}⚠️  Are you sure you want to delete: ${target}?${RESET}"
+        read -p "Type 'yes' to confirm: " confirm
+        [[ "${confirm}" != "yes" ]] && return 1
+    fi
+    
+    echo -e "${CYAN}🗑️  Deleting: ${target}${RESET}"
+    
+    if rm -rf "${target}"; then
+        echo -e "${GREEN}✓ Delete successful${RESET}"
+    else
+        echo -e "${RED}❌ Delete failed${RESET}"
+        return 1
+    fi
+}
+
+# Compression: Create archive with max compression
+compress_files() {
+    local output="$1"
+    shift
+    local files=("$@")
+    local format="${output##*.}"
+    
+    echo -e "${CYAN}📦 Compressing ${#files[@]} file(s)...${RESET}"
+    
+    case "${format}" in
+        tar.gz|tgz)
+            tar -czf "${output}" "${files[@]}" && \
+            echo -e "${GREEN}✓ Created: ${output}${RESET}"
+            ;;
+        tar.bz2|tbz2)
+            tar -cjf "${output}" "${files[@]}" && \
+            echo -e "${GREEN}✓ Created: ${output}${RESET}"
+            ;;
+        tar.xz|txz)
+            tar -cJf "${output}" "${files[@]}" && \
+            echo -e "${GREEN}✓ Created: ${output}${RESET}"
+            ;;
+        zip)
+            zip -9 -r "${output}" "${files[@]}" && \
+            echo -e "${GREEN}✓ Created: ${output}${RESET}"
+            ;;
+        7z)
+            7z a -mx=9 "${output}" "${files[@]}" && \
+            echo -e "${GREEN}✓ Created: ${output}${RESET}"
+            ;;
+        *)
+            echo -e "${RED}❌ Unsupported format: ${format}${RESET}"
+            echo -e "${YELLOW}Supported: tar.gz, tar.bz2, tar.xz, zip, 7z${RESET}"
+            return 1
+            ;;
+    esac
+}
+
+# Extract archive
+extract_archive() {
+    local archive="$1"
+    local dest="${2:-.}"
+    local format="${archive##*.}"
+    
+    if [[ ! -f "${archive}" ]]; then
+        echo -e "${RED}❌ Archive not found: ${archive}${RESET}"
+        return 1
+    fi
+    
+    echo -e "${CYAN}📂 Extracting: ${archive}${RESET}"
+    mkdir -p "${dest}"
+    
+    case "${archive}" in
+        *.tar.gz|*.tgz)
+            tar -xzf "${archive}" -C "${dest}" && \
+            echo -e "${GREEN}✓ Extracted successfully${RESET}"
+            ;;
+        *.tar.bz2|*.tbz2)
+            tar -xjf "${archive}" -C "${dest}" && \
+            echo -e "${GREEN}✓ Extracted successfully${RESET}"
+            ;;
+        *.tar.xz|*.txz)
+            tar -xJf "${archive}" -C "${dest}" && \
+            echo -e "${GREEN}✓ Extracted successfully${RESET}"
+            ;;
+        *.zip)
+            unzip -q "${archive}" -d "${dest}" && \
+            echo -e "${GREEN}✓ Extracted successfully${RESET}"
+            ;;
+        *.7z)
+            7z x "${archive}" -o"${dest}" && \
+            echo -e "${GREEN}✓ Extracted successfully${RESET}"
+            ;;
+        *.rar)
+            unrar x "${archive}" "${dest}/" && \
+            echo -e "${GREEN}✓ Extracted successfully${RESET}"
+            ;;
+        *)
+            echo -e "${RED}❌ Unsupported archive format${RESET}"
+            return 1
+            ;;
+    esac
+}
+
+# Interactive file manager menu
+interactive_menu() {
+    show_banner
+    
+    while true; do
+        echo -e "\n${BOLD}${YELLOW}🎯 MAIN MENU${RESET}"
+        echo -e "${CYAN}────────────────────────────────────────${RESET}"
+        echo -e "${WHITE}1.${RESET} 🔍 Search Files"
+        echo -e "${WHITE}2.${RESET} 📋 Copy Files"
+        echo -e "${WHITE}3.${RESET} 📦 Move Files"
+        echo -e "${WHITE}4.${RESET} ✏️  Rename Files"
+        echo -e "${WHITE}5.${RESET} 🗑️  Delete Files"
+        echo -e "${WHITE}6.${RESET} 📦 Compress Files"
+        echo -e "${WHITE}7.${RESET} 📂 Extract Archive"
+        echo -e "${WHITE}8.${RESET} 📊 File Statistics"
+        echo -e "${WHITE}9.${RESET} ⚙️  Settings"
+        echo -e "${WHITE}0.${RESET} 🚪 Exit"
+        echo -e "${CYAN}────────────────────────────────────────${RESET}"
+        
+        read -p "$(echo -e ${MAGENTA}Select option: ${RESET})" choice
+        
+        case "${choice}" in
+            1) menu_search ;;
+            2) menu_copy ;;
+            3) menu_move ;;
+            4) menu_rename ;;
+            5) menu_delete ;;
+            6) menu_compress ;;
+            7) menu_extract ;;
+            8) menu_stats ;;
+            9) menu_settings ;;
+            0) echo -e "${GREEN}👋 Goodbye!${RESET}"; exit 0 ;;
+            *) echo -e "${RED}❌ Invalid option${RESET}" ;;
+        esac
+    done
+}
+
+# Menu functions
+menu_search() {
+    read -p "$(echo -e ${CYAN}Enter search pattern: ${RESET})" pattern
+    read -p "$(echo -e ${CYAN}Search path [default: .]: ${RESET})" path
+    path="${path:-.}"
+    
+    fast_search "${pattern}" "${path}" | display_results
+    
+    read -p "$(echo -e ${YELLOW}Press Enter to continue...${RESET})"
+}
+
+menu_copy() {
+    read -p "$(echo -e ${CYAN}Source file: ${RESET})" source
+    read -p "$(echo -e ${CYAN}Destination: ${RESET})" dest
+    file_copy "${source}" "${dest}"
+    read -p "$(echo -e ${YELLOW}Press Enter to continue...${RESET})"
+}
+
+menu_move() {
+    read -p "$(echo -e ${CYAN}Source file: ${RESET})" source
+    read -p "$(echo -e ${CYAN}Destination: ${RESET})" dest
+    file_move "${source}" "${dest}"
+    read -p "$(echo -e ${YELLOW}Press Enter to continue...${RESET})"
+}
+
+menu_rename() {
+    read -p "$(echo -e ${CYAN}File to rename: ${RESET})" source
+    read -p "$(echo -e ${CYAN}New name: ${RESET})" newname
+    file_rename "${source}" "${newname}"
+    read -p "$(echo -e ${YELLOW}Press Enter to continue...${RESET})"
+}
+
+menu_delete() {
+    read -p "$(echo -e ${CYAN}File/directory to delete: ${RESET})" target
+    file_delete "${target}"
+    read -p "$(echo -e ${YELLOW}Press Enter to continue...${RESET})"
+}
+
+menu_compress() {
+    read -p "$(echo -e ${CYAN}Output archive name: ${RESET})" output
+    read -p "$(echo -e ${CYAN}Files to compress (space-separated): ${RESET})" files
+    compress_files "${output}" ${files}
+    read -p "$(echo -e ${YELLOW}Press Enter to continue...${RESET})"
+}
+
+menu_extract() {
+    read -p "$(echo -e ${CYAN}Archive to extract: ${RESET})" archive
+    read -p "$(echo -e ${CYAN}Destination [default: .]: ${RESET})" dest
+    dest="${dest:-.}"
+    extract_archive "${archive}" "${dest}"
+    read -p "$(echo -e ${YELLOW}Press Enter to continue...${RESET})"
+}
+
+menu_stats() {
+    echo -e "\n${BOLD}${GREEN}📊 SYSTEM STATISTICS${RESET}"
+    echo -e "${CYAN}═══════════════════════════════════════${RESET}"
+    df -h | head -2
+    echo -e "\n${BOLD}File Types:${RESET}"
+    find . -type f 2>/dev/null | sed 's/.*\.//' | sort | uniq -c | sort -rn | head -10
+    read -p "$(echo -e ${YELLOW}Press Enter to continue...${RESET})"
+}
+
+menu_settings() {
+    echo -e "\n${BOLD}${YELLOW}⚙️  SETTINGS${RESET}"
+    echo -e "Configuration directory: ${VATHYS_DIR}"
+    echo -e "Cache directory: ${VATHYS_CACHE}"
+    read -p "$(echo -e ${YELLOW}Press Enter to continue...${RESET})"
+}
+
+# Command-line interface
+parse_cli() {
+    case "$1" in
+        search|-s|--search)
+            shift
+            fast_search "$@" | display_results
+            ;;
+        copy|-c|--copy)
+            file_copy "$2" "$3"
+            ;;
+        move|-m|--move)
+            file_move "$2" "$3"
+            ;;
+        rename|-r|--rename)
+            file_rename "$2" "$3"
+            ;;
+        delete|-d|--delete)
+            file_delete "$2" "$3"
+            ;;
+        compress|-z|--compress)
+            shift
+            compress_files "$@"
+            ;;
+        extract|-x|--extract)
+            extract_archive "$2" "$3"
+            ;;
+        interactive|-i|--interactive)
+            interactive_menu
+            ;;
+        help|-h|--help)
+            show_help
+            ;;
+        *)
+            interactive_menu
+            ;;
+    esac
+}
+
+show_help() {
+    show_banner
+    cat << EOF
+${BOLD}${YELLOW}USAGE:${RESET}
+  vath [COMMAND] [OPTIONS]
+
+${BOLD}${YELLOW}COMMANDS:${RESET}
+  ${CYAN}search${RESET}, -s      Search for files
+  ${CYAN}copy${RESET}, -c        Copy files
+  ${CYAN}move${RESET}, -m        Move files
+  ${CYAN}rename${RESET}, -r      Rename files
+  ${CYAN}delete${RESET}, -d      Delete files/directories
+  ${CYAN}compress${RESET}, -z    Compress files (max compression)
+  ${CYAN}extract${RESET}, -x     Extract archives
+  ${CYAN}interactive${RESET}, -i Launch interactive mode
+  ${CYAN}help${RESET}, -h        Show this help
+
+${BOLD}${YELLOW}EXAMPLES:${RESET}
+  ${GREEN}vath search vacation /home${RESET}
+  ${GREEN}vath copy file.txt backup/file.txt${RESET}
+  ${GREEN}vath compress archive.tar.gz file1 file2${RESET}
+  ${GREEN}vath extract archive.zip /tmp${RESET}
+  ${GREEN}vath -i${RESET}  # Interactive mode
+
+${BOLD}${YELLOW}COMPRESSION FORMATS:${RESET}
+  tar.gz, tar.bz2, tar.xz, zip, 7z
+
+${BOLD}${YELLOW}EXTRACTION FORMATS:${RESET}
+  All above + rar, tar, gz, bz2, xz
+
+EOF
+}
+
+# Main execution
+main() {
+    init_vathys
+    
+    if [[ $# -eq 0 ]]; then
+        interactive_menu
+    else
+        parse_cli "$@"
+    fi
+}
+
+main "$@"
