@@ -83,7 +83,7 @@ install_script() {
     echo -e "${YELLOW}[3/5] Installing VathysEye...${RESET}"
     
     # Check if running from git repo or standalone
-    if [[ -f "vathyseye.sh" ]]; then
+    if [[ -f "vathyseye" ]]; then
         SCRIPT_PATH="vathyseye"
     elif [[ -f "src/vathyseye" ]]; then
         SCRIPT_PATH="src/vathyseye"
