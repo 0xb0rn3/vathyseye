@@ -84,11 +84,11 @@ install_script() {
     
     # Check if running from git repo or standalone
     if [[ -f "vathyseye.sh" ]]; then
-        SCRIPT_PATH="vathyseye.sh"
-    elif [[ -f "src/vathyseye.sh" ]]; then
-        SCRIPT_PATH="src/vathyseye.sh"
+        SCRIPT_PATH="vathyseye"
+    elif [[ -f "src/vathyseye" ]]; then
+        SCRIPT_PATH="src/vathyseye"
     else
-        echo -e "${RED}❌ Cannot find vathyseye.sh${RESET}"
+        echo -e "${RED}❌ Cannot find vathyseye${RESET}"
         exit 1
     fi
     
