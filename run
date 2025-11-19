@@ -96,13 +96,6 @@ check_dependencies() {
     command -v pv >/dev/null 2>&1 || missing_optional+=("pv")
     command -v ssh-agent >/dev/null 2>&1 || missing_optional+=("keychain")
     
-    # Check for pthread support
-    if command -v gcc >/dev/null 2>&1; then
-        if ! echo | gcc -pthread -x c - -o /dev/null 2>/dev/null; then
-            missing_required+=("pthread-dev")
-        fi
-    fi
-    
     # Handle missing required dependencies
     if [[ ${#missing_required[@]} -gt 0 ]]; then
         echo -e "${RED}❌ Missing required dependencies: ${missing_required[*]}${RESET}"
