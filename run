@@ -1,0 +1,250 @@
+#!/usr/bin/env bash
+
+#############################################################################
+# VathysEye 4.0 - Installation Script
+# Author: 0xb0rn3 | 0xbv1
+#############################################################################
+
+set -e
+
+RED='\033[0;31m'
+GREEN='\033[0;32m'
+YELLOW='\033[0;33m'
+CYAN='\033[0;36m'
+BOLD='\033[1m'
+RESET='\033[0m'
+
+INSTALL_DIR="/usr/local/bin"
+VATHYS_HOME="${HOME}/.vathyseye"
+
+echo -e "${BOLD}${CYAN}"
+cat << "EOF"
+╔═══════════════════════════════════════════════════════════════════╗
+║                  VathysEye 4.0 Installation                       ║
+║                  Ultimate CLI File Manager                        ║
+╚═══════════════════════════════════════════════════════════════════╝
+EOF
+echo -e "${RESET}"
+
+# Check for required dependencies
+check_dependencies() {
+    echo -e "${YELLOW}[1/5] Checking dependencies...${RESET}"
+    
+    local missing_deps=()
+    
+    # Required
+    command -v gcc >/dev/null 2>&1 || missing_deps+=("gcc")
+    command -v tar >/dev/null 2>&1 || missing_deps+=("tar")
+    command -v find >/dev/null 2>&1 || missing_deps+=("find")
+    
+    # Optional but recommended
+    local optional=()
+    command -v zip >/dev/null 2>&1 || optional+=("zip")
+    command -v unzip >/dev/null 2>&1 || optional+=("unzip")
+    command -v 7z >/dev/null 2>&1 || optional+=("p7zip")
+    command -v unrar >/dev/null 2>&1 || optional+=("unrar")
+    
+    if [[ ${#missing_deps[@]} -gt 0 ]]; then
+        echo -e "${RED}❌ Missing required dependencies: ${missing_deps[*]}${RESET}"
+        echo -e "${YELLOW}Install with:${RESET}"
+        
+        if command -v apt-get >/dev/null 2>&1; then
+            echo "  sudo apt-get install ${missing_deps[*]}"
+        elif command -v yum >/dev/null 2>&1; then
+            echo "  sudo yum install ${missing_deps[*]}"
+        elif command -v pacman >/dev/null 2>&1; then
+            echo "  sudo pacman -S ${missing_deps[*]}"
+        elif command -v brew >/dev/null 2>&1; then
+            echo "  brew install ${missing_deps[*]}"
+        fi
+        exit 1
+    fi
+    
+    if [[ ${#optional[@]} -gt 0 ]]; then
+        echo -e "${YELLOW}⚠️  Optional dependencies missing: ${optional[*]}${RESET}"
+        echo -e "${CYAN}   (Install for full functionality)${RESET}"
+    fi
+    
+    echo -e "${GREEN}✓ All required dependencies found${RESET}"
+}
+
+# Create directory structure
+setup_directories() {
+    echo -e "${YELLOW}[2/5] Setting up directories...${RESET}"
+    
+    mkdir -p "${VATHYS_HOME}"/{bin,cache,config,logs}
+    chmod 755 "${VATHYS_HOME}"
+    
+    echo -e "${GREEN}✓ Directory structure created${RESET}"
+}
+
+# Install main script
+install_script() {
+    echo -e "${YELLOW}[3/5] Installing VathysEye...${RESET}"
+    
+    # Check if running from git repo or standalone
+    if [[ -f "vathyseye.sh" ]]; then
+        SCRIPT_PATH="vathyseye.sh"
+    elif [[ -f "src/vathyseye.sh" ]]; then
+        SCRIPT_PATH="src/vathyseye.sh"
+    else
+        echo -e "${RED}❌ Cannot find vathyseye.sh${RESET}"
+        exit 1
+    fi
+    
+    # Copy script
+    if [[ -w "${INSTALL_DIR}" ]]; then
+        cp "${SCRIPT_PATH}" "${INSTALL_DIR}/vath"
+        chmod +x "${INSTALL_DIR}/vath"
+    else
+        echo -e "${YELLOW}⚠️  Need sudo for system-wide install${RESET}"
+        sudo cp "${SCRIPT_PATH}" "${INSTALL_DIR}/vath"
+        sudo chmod +x "${INSTALL_DIR}/vath"
+    fi
+    
+    echo -e "${GREEN}✓ VathysEye installed to ${INSTALL_DIR}/vath${RESET}"
+}
+
+# Compile C helper
+compile_helper() {
+    echo -e "${YELLOW}[4/5] Compiling performance helper...${RESET}"
+    
+    # The main script will compile it on first run
+    # This is just a placeholder for future enhancements
+    
+    echo -e "${GREEN}✓ Helper will be compiled on first run${RESET}"
+}
+
+# Setup shell integration
+setup_shell_integration() {
+    echo -e "${YELLOW}[5/5] Setting up shell integration...${RESET}"
+    
+    local shell_rc=""
+    case "${SHELL}" in
+        */bash)
+            shell_rc="${HOME}/.bashrc"
+            ;;
+        */zsh)
+            shell_rc="${HOME}/.zshrc"
+            ;;
+        */fish)
+            shell_rc="${HOME}/.config/fish/config.fish"
+            ;;
+        *)
+            echo -e "${YELLOW}⚠️  Unknown shell, skipping integration${RESET}"
+            return
+            ;;
+    esac
+    
+    if [[ -n "${shell_rc}" && -f "${shell_rc}" ]]; then
+        if ! grep -q "# VathysEye aliases" "${shell_rc}"; then
+            echo -e "\n# VathysEye aliases" >> "${shell_rc}"
+            echo "alias vf='vath search'" >> "${shell_rc}"
+            echo "alias vx='vath extract'" >> "${shell_rc}"
+            echo "alias vz='vath compress'" >> "${shell_rc}"
+            echo "alias vi='vath interactive'" >> "${shell_rc}"
+            echo -e "${GREEN}✓ Shell aliases added to ${shell_rc}${RESET}"
+            echo -e "${CYAN}   Run: source ${shell_rc}${RESET}"
+        else
+            echo -e "${GREEN}✓ Shell integration already configured${RESET}"
+        fi
+    fi
+}
+
+# Create sample config
+create_config() {
+    local config_file="${VATHYS_HOME}/config/vathys.conf"
+    
+    if [[ ! -f "${config_file}" ]]; then
+        cat > "${config_file}" << 'EOF'
+# VathysEye Configuration
+# Default settings for the file manager
+
+# Search settings
+DEFAULT_SEARCH_PATH="${HOME}"
+MAX_SEARCH_RESULTS=1000
+ENABLE_FUZZY_SEARCH=true
+
+# Compression settings
+DEFAULT_COMPRESSION_FORMAT="tar.gz"
+COMPRESSION_LEVEL=9
+
+# Display settings
+COLOR_OUTPUT=true
+SHOW_HIDDEN_FILES=false
+
+# Performance
+USE_C_HELPER=true
+NUM_THREADS=8
+CACHE_RESULTS=true
+EOF
+        echo -e "${GREEN}✓ Created configuration file${RESET}"
+    fi
+}
+
+# Final setup
+finalize() {
+    echo -e "\n${BOLD}${GREEN}═══════════════════════════════════════════${RESET}"
+    echo -e "${BOLD}${GREEN}    Installation Complete! 🎉${RESET}"
+    echo -e "${BOLD}${GREEN}═══════════════════════════════════════════${RESET}\n"
+    
+    echo -e "${CYAN}Quick Start:${RESET}"
+    echo -e "  ${YELLOW}vath${RESET}                    Launch interactive mode"
+    echo -e "  ${YELLOW}vath search vacation${RESET}    Search for files"
+    echo -e "  ${YELLOW}vath -i${RESET}                 Interactive menu"
+    echo -e "  ${YELLOW}vath help${RESET}               Show full help\n"
+    
+    echo -e "${CYAN}Shell Aliases (after sourcing rc file):${RESET}"
+    echo -e "  ${YELLOW}vf${RESET} <pattern>           Quick file search"
+    echo -e "  ${YELLOW}vx${RESET} <archive>           Quick extract"
+    echo -e "  ${YELLOW}vz${RESET} <output> <files>    Quick compress"
+    echo -e "  ${YELLOW}vi${RESET}                      Interactive mode\n"
+    
+    echo -e "${CYAN}Configuration:${RESET}"
+    echo -e "  ${VATHYS_HOME}/config/vathys.conf\n"
+    
+    echo -e "${CYAN}Logs:${RESET}"
+    echo -e "  ${VATHYS_HOME}/logs/\n"
+    
+    echo -e "${BOLD}${YELLOW}⚡ VathysEye 4.0 - If it exists, we'll find it! ⚡${RESET}\n"
+}
+
+# Uninstall function
+uninstall() {
+    echo -e "${YELLOW}Uninstalling VathysEye...${RESET}"
+    
+    if [[ -f "${INSTALL_DIR}/vath" ]]; then
+        if [[ -w "${INSTALL_DIR}" ]]; then
+            rm "${INSTALL_DIR}/vath"
+        else
+            sudo rm "${INSTALL_DIR}/vath"
+        fi
+        echo -e "${GREEN}✓ Removed binary${RESET}"
+    fi
+    
+    read -p "Remove configuration directory ${VATHYS_HOME}? (y/N) " confirm
+    if [[ "${confirm}" =~ ^[Yy]$ ]]; then
+        rm -rf "${VATHYS_HOME}"
+        echo -e "${GREEN}✓ Removed configuration${RESET}"
+    fi
+    
+    echo -e "${GREEN}VathysEye uninstalled${RESET}"
+}
+
+# Main installation flow
+main() {
+    if [[ "$1" == "uninstall" ]]; then
+        uninstall
+        exit 0
+    fi
+    
+    check_dependencies
+    setup_directories
+    install_script
+    compile_helper
+    create_config
+    setup_shell_integration
+    finalize
+}
+
+main "$@"
