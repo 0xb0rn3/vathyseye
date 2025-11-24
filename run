@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 
 #############################################################################
-# VathysEye 5.0 - Advanced Installation Script
+# VathysEye 5.1 
 # Author: 0xb0rn3 | 0xbv1
 # Description: Complete setup with dependency management and optimization
 #############################################################################
@@ -18,7 +18,7 @@ RESET='\033[0m'
 
 INSTALL_DIR="/usr/local/bin"
 VATHYS_HOME="${HOME}/.vathyseye"
-SCRIPT_VERSION="5.0.0"
+SCRIPT_VERSION="5.1.0"
 OS_TYPE=""
 PACKAGE_MANAGER=""
 
@@ -54,9 +54,9 @@ detect_system() {
 echo -e "${BOLD}${CYAN}"
 cat << "EOF"
 ╔═══════════════════════════════════════════════════════════════════╗
-║              VathysEye 5.0 Advanced Installation                  ║
+║                        VathysEye 5.1                              ║
 ║          Ultimate CLI File Manager + SSH/SFTP Client              ║
-║                 With Ultra-Fast Transfer Engine                   ║
+║       NEW: Mass Copy with Exclusions + Auto-Update System         ║
 ╚═══════════════════════════════════════════════════════════════════╝
 EOF
 echo -e "${RESET}"
@@ -67,7 +67,7 @@ echo -e "${CYAN}📦 Package Manager: ${BOLD}${PACKAGE_MANAGER}${RESET}\n"
 
 # Check for required dependencies
 check_dependencies() {
-    echo -e "${BOLD}${YELLOW}[1/8] Checking dependencies...${RESET}"
+    echo -e "${BOLD}${YELLOW}[1/9] Checking dependencies...${RESET}"
     
     local missing_required=()
     local missing_optional=()
@@ -82,27 +82,28 @@ check_dependencies() {
     command -v scp >/dev/null 2>&1 || missing_required+=("openssh-client")
     
     # Recommended for full functionality
+    command -v rsync >/dev/null 2>&1 || missing_recommended+=("rsync")
     command -v zip >/dev/null 2>&1 || missing_recommended+=("zip")
     command -v unzip >/dev/null 2>&1 || missing_recommended+=("unzip")
     command -v gzip >/dev/null 2>&1 || missing_recommended+=("gzip")
     command -v bzip2 >/dev/null 2>&1 || missing_recommended+=("bzip2")
     command -v xz >/dev/null 2>&1 || missing_recommended+=("xz-utils")
     command -v numfmt >/dev/null 2>&1 || missing_recommended+=("coreutils")
+    command -v curl >/dev/null 2>&1 || missing_recommended+=("curl")
     
     # Optional but useful
     command -v 7z >/dev/null 2>&1 || missing_optional+=("p7zip-full")
     command -v unrar >/dev/null 2>&1 || missing_optional+=("unrar")
-    command -v rsync >/dev/null 2>&1 || missing_optional+=("rsync")
     command -v pv >/dev/null 2>&1 || missing_optional+=("pv")
-    command -v ssh-agent >/dev/null 2>&1 || missing_optional+=("keychain")
+    command -v wget >/dev/null 2>&1 || missing_optional+=("wget")
     
     # Handle missing required dependencies
     if [[ ${#missing_required[@]} -gt 0 ]]; then
-        echo -e "${RED}❌ Missing required dependencies: ${missing_required[*]}${RESET}"
+        echo -e "${RED}✖ Missing required dependencies: ${missing_required[*]}${RESET}"
         echo -e "${YELLOW}📦 Attempting to install required packages...${RESET}\n"
         
         if ! install_packages "${missing_required[@]}"; then
-            echo -e "${RED}❌ Failed to install required dependencies${RESET}"
+            echo -e "${RED}✖ Failed to install required dependencies${RESET}"
             echo -e "${YELLOW}Please install manually:${RESET}"
             show_install_commands "${missing_required[@]}"
             exit 1
@@ -114,6 +115,7 @@ check_dependencies() {
     # Handle recommended dependencies
     if [[ ${#missing_recommended[@]} -gt 0 ]]; then
         echo -e "${YELLOW}⚠️  Missing recommended packages: ${missing_recommended[*]}${RESET}"
+        echo -e "${CYAN}   (Highly recommended for mass copy and auto-update features)${RESET}"
         echo -en "${CYAN}Install recommended packages? (Y/n): ${RESET}"
         read -r response
         
@@ -199,11 +201,11 @@ show_install_commands() {
 
 # Create directory structure
 setup_directories() {
-    echo -e "${BOLD}${YELLOW}[2/8] Setting up directory structure...${RESET}"
+    echo -e "${BOLD}${YELLOW}[2/9] Setting up directory structure...${RESET}"
     
     mkdir -p "${VATHYS_HOME}"/{bin,cache,config,logs,sessions,temp,backups}
     chmod 755 "${VATHYS_HOME}"
-    chmod 700 "${VATHYS_HOME}/sessions"  # Secure session data
+    chmod 700 "${VATHYS_HOME}/sessions"
     
     # Create subdirectories
     mkdir -p "${VATHYS_HOME}/cache"/{search,transfers}
@@ -215,20 +217,18 @@ setup_directories() {
 
 # Install main script
 install_script() {
-    echo -e "${BOLD}${YELLOW}[3/8] Installing VathysEye...${RESET}"
+    echo -e "${BOLD}${YELLOW}[3/9] Installing VathysEye...${RESET}"
     
-    # Check if running from git repo or standalone
     local script_path=""
     if [[ -f "vathyseye" ]]; then
         script_path="vathyseye"
     elif [[ -f "src/vathyseye" ]]; then
         script_path="src/vathyseye"
     else
-        echo -e "${RED}❌ Cannot find vathyseye script${RESET}"
+        echo -e "${RED}✖ Cannot find vathyseye script${RESET}"
         exit 1
     fi
     
-    # Copy script
     if [[ -w "${INSTALL_DIR}" ]]; then
         cp "${script_path}" "${INSTALL_DIR}/vath"
         chmod +x "${INSTALL_DIR}/vath"
@@ -238,20 +238,18 @@ install_script() {
         sudo chmod +x "${INSTALL_DIR}/vath"
     fi
     
-    # Verify installation
     if [[ -x "${INSTALL_DIR}/vath" ]]; then
         echo -e "${GREEN}✓ VathysEye installed to ${INSTALL_DIR}/vath${RESET}\n"
     else
-        echo -e "${RED}❌ Installation failed${RESET}"
+        echo -e "${RED}✖ Installation failed${RESET}"
         exit 1
     fi
 }
 
 # Compile C helpers with optimizations
 compile_helpers() {
-    echo -e "${BOLD}${YELLOW}[4/8] Compiling performance engines...${RESET}"
+    echo -e "${BOLD}${YELLOW}[4/9] Compiling performance engines...${RESET}"
     
-    # Test GCC optimization support
     local gcc_flags="-O3 -pthread -march=native -mtune=native"
     
     if ! gcc ${gcc_flags} -x c - -o /dev/null 2>/dev/null <<< "int main(){return 0;}"; then
@@ -260,9 +258,6 @@ compile_helpers() {
     fi
     
     echo -e "${CYAN}  Using GCC flags: ${gcc_flags}${RESET}"
-    
-    # The main script will compile them on first run with proper source
-    # But we'll create a compilation test
     
     cat > "${VATHYS_HOME}/bin/test_compile.c" << 'TESTEOF'
 #include <stdio.h>
@@ -285,13 +280,13 @@ TESTEOF
 
 # Create configuration files
 create_config() {
-    echo -e "${BOLD}${YELLOW}[5/8] Creating configuration files...${RESET}"
+    echo -e "${BOLD}${YELLOW}[5/9] Creating configuration files...${RESET}"
     
     local config_file="${VATHYS_HOME}/config/vathys.conf"
     
     if [[ ! -f "${config_file}" ]]; then
         cat > "${config_file}" << 'CONFEOF'
-# VathysEye 5.0 Configuration File
+# VathysEye 5.1 Configuration File
 # Generated during installation
 
 #############################################################################
@@ -303,7 +298,7 @@ NUM_SEARCH_THREADS=16
 ENABLE_FUZZY_SEARCH=true
 SEARCH_QUEUE_SIZE=10000
 CACHE_SEARCH_INDEX=true
-INDEX_UPDATE_INTERVAL=3600  # seconds
+INDEX_UPDATE_INTERVAL=3600
 
 #############################################################################
 # TRANSFER ENGINE SETTINGS
@@ -312,8 +307,25 @@ NUM_TRANSFER_STREAMS=8
 CHUNK_SIZE_MB=8
 ENABLE_TRANSFER_RESUME=true
 VERIFY_TRANSFERS=true
-TRANSFER_TIMEOUT=300  # seconds
+TRANSFER_TIMEOUT=300
 MAX_RETRY_ATTEMPTS=3
+
+#############################################################################
+# MASS COPY SETTINGS (NEW in 5.1)
+#############################################################################
+USE_RSYNC_FOR_MASS_COPY=true
+RSYNC_BANDWIDTH_LIMIT=0  # 0 = unlimited, or specify in KB/s
+SHOW_MASS_COPY_PROGRESS=true
+PRESERVE_PERMISSIONS=true
+PRESERVE_TIMESTAMPS=true
+
+#############################################################################
+# AUTO-UPDATE SETTINGS (NEW in 5.1)
+#############################################################################
+AUTO_CHECK_UPDATES=false
+UPDATE_CHECK_INTERVAL=7  # days
+AUTO_BACKUP_BEFORE_UPDATE=true
+UPDATE_CHANNEL="stable"  # stable or beta
 
 #############################################################################
 # COMPRESSION SETTINGS
@@ -359,26 +371,17 @@ DATE_FORMAT="%Y-%m-%d %H:%M:%S"
 USE_C_HELPERS=true
 CACHE_RESULTS=true
 ENABLE_LOGGING=true
-LOG_LEVEL=INFO  # DEBUG, INFO, WARN, ERROR
+LOG_LEVEL=INFO
 MAX_LOG_SIZE_MB=100
 LOG_ROTATION=true
 
 #############################################################################
 # SECURITY SETTINGS
 #############################################################################
-SECURE_DELETE=false  # Use shred for deletion
-VERIFY_CHECKSUMS=false  # Verify file integrity
-ENCRYPT_SESSIONS=false  # Encrypt session data
+SECURE_DELETE=false
+VERIFY_CHECKSUMS=false
+ENCRYPT_SESSIONS=false
 AUTO_BACKUP_CONFIG=true
-
-#############################################################################
-# ADVANCED SETTINGS
-#############################################################################
-MAX_CONCURRENT_OPERATIONS=10
-OPERATION_QUEUE_SIZE=1000
-ENABLE_NOTIFICATIONS=false
-AUTO_UPDATE_CHECK=false
-TELEMETRY_ENABLED=false
 CONFEOF
         echo -e "${GREEN}✓ Created configuration file${RESET}"
     else
@@ -413,19 +416,16 @@ HashKnownHosts yes
 StrictHostKeyChecking ask
 SSHEOF
     
-    echo -e "${CYAN}  SSH optimization config created${RESET}"
-    echo -e "${YELLOW}  Add ${ssh_config} to ~/.ssh/config for best performance${RESET}\n"
+    echo -e "${CYAN}  SSH optimization config created${RESET}\n"
 }
 
 # Setup SSH environment
 setup_ssh() {
-    echo -e "${BOLD}${YELLOW}[6/8] Setting up SSH environment...${RESET}"
+    echo -e "${BOLD}${YELLOW}[6/9] Setting up SSH environment...${RESET}"
     
-    # Create SSH socket directory
     mkdir -p "${VATHYS_HOME}/sessions/ssh"
     chmod 700 "${VATHYS_HOME}/sessions/ssh"
     
-    # Check for SSH key
     if [[ ! -f ~/.ssh/id_rsa && ! -f ~/.ssh/id_ed25519 && ! -f ~/.ssh/id_ecdsa ]]; then
         echo -e "${YELLOW}⚠️  No SSH key found${RESET}"
         echo -en "${CYAN}Generate SSH key now? (y/N): ${RESET}"
@@ -435,7 +435,6 @@ setup_ssh() {
             echo -e "${CYAN}Generating Ed25519 SSH key...${RESET}"
             ssh-keygen -t ed25519 -C "vathyseye@$(hostname)" -f ~/.ssh/id_ed25519
             
-            # Start ssh-agent if not running
             if [[ -z "$SSH_AUTH_SOCK" ]]; then
                 eval "$(ssh-agent -s)"
                 ssh-add ~/.ssh/id_ed25519
@@ -447,7 +446,6 @@ setup_ssh() {
         echo -e "${GREEN}✓ SSH key found${RESET}"
     fi
     
-    # Optimize SSH config
     if [[ -f ~/.ssh/config ]]; then
         if ! grep -q "ControlMaster" ~/.ssh/config; then
             echo -en "${CYAN}Add SSH optimizations to ~/.ssh/config? (y/N): ${RESET}"
@@ -465,7 +463,7 @@ setup_ssh() {
 
 # Setup shell integration
 setup_shell_integration() {
-    echo -e "${BOLD}${YELLOW}[7/8] Setting up shell integration...${RESET}"
+    echo -e "${BOLD}${YELLOW}[7/9] Setting up shell integration...${RESET}"
     
     local shell_rc=""
     local shell_name=""
@@ -491,23 +489,24 @@ setup_shell_integration() {
     
     if [[ -n "${shell_rc}" && -f "${shell_rc}" ]]; then
         if ! grep -q "# VathysEye aliases" "${shell_rc}"; then
-            echo -e "\n# VathysEye 5.0 aliases and functions" >> "${shell_rc}"
+            echo -e "\n# VathysEye 5.1 aliases and functions" >> "${shell_rc}"
             echo "alias vath='vath'" >> "${shell_rc}"
             echo "alias vf='vath search'" >> "${shell_rc}"
+            echo "alias vmc='vath mass-copy'" >> "${shell_rc}"
             echo "alias vx='vath extract'" >> "${shell_rc}"
             echo "alias vz='vath compress'" >> "${shell_rc}"
             echo "alias vi='vath -i'" >> "${shell_rc}"
             echo "alias vssh='vath ssh-connect'" >> "${shell_rc}"
             echo "alias vup='vath ssh-upload'" >> "${shell_rc}"
             echo "alias vdown='vath ssh-download'" >> "${shell_rc}"
+            echo "alias vupdate='vath update'" >> "${shell_rc}"
             
-            # Add completion helper
             cat >> "${shell_rc}" << 'SHELLEOF'
 
 # VathysEye bash completion
 _vath_complete() {
     local cur="${COMP_WORDS[COMP_CWORD]}"
-    local commands="search copy move rename delete compress extract ssh-connect ssh-upload ssh-download ssh-list ssh-delete ssh-rename interactive help"
+    local commands="search copy mass-copy move rename delete compress extract ssh-connect ssh-upload ssh-download ssh-list update check-update interactive help"
     COMPREPLY=($(compgen -W "${commands}" -- ${cur}))
 }
 complete -F _vath_complete vath
@@ -525,22 +524,7 @@ SHELLEOF
 
 # Create helper scripts
 create_helper_scripts() {
-    echo -e "${BOLD}${YELLOW}[8/8] Creating helper scripts...${RESET}"
-    
-    # Create update script
-    cat > "${VATHYS_HOME}/bin/vath-update" << 'UPDATEEOF'
-#!/bin/bash
-# VathysEye update script
-echo "🔄 Checking for updates..."
-cd "$(dirname "${BASH_SOURCE[0]}")/../.."
-if [[ -d .git ]]; then
-    git pull origin main
-    ./run
-else
-    echo "⚠️  Not a git repository. Please download latest version manually."
-fi
-UPDATEEOF
-    chmod +x "${VATHYS_HOME}/bin/vath-update"
+    echo -e "${BOLD}${YELLOW}[8/9] Creating helper scripts...${RESET}"
     
     # Create benchmark script
     cat > "${VATHYS_HOME}/bin/vath-benchmark" << 'BENCHEOF'
@@ -555,6 +539,12 @@ echo "2. Transfer Performance Test (10MB file)"
 dd if=/dev/zero of=/tmp/vath_test_10mb bs=1M count=10 2>/dev/null
 time vath copy /tmp/vath_test_10mb /tmp/vath_test_10mb_copy
 rm -f /tmp/vath_test_10mb /tmp/vath_test_10mb_copy
+echo ""
+echo "3. Mass Copy Test (with exclusion)"
+mkdir -p /tmp/vath_test_src/{dir1,dir2,exclude_me}
+touch /tmp/vath_test_src/dir{1,2}/test.txt
+time vath mass-copy /tmp/vath_test_src /tmp/vath_test_dst exclude_me
+rm -rf /tmp/vath_test_src /tmp/vath_test_dst
 echo ""
 echo "✓ Benchmark complete"
 BENCHEOF
@@ -573,14 +563,13 @@ CLEANEOF
     chmod +x "${VATHYS_HOME}/bin/vath-cleanup"
     
     echo -e "${GREEN}✓ Helper scripts created:${RESET}"
-    echo -e "${CYAN}  - vath-update     Update to latest version${RESET}"
     echo -e "${CYAN}  - vath-benchmark  Run performance tests${RESET}"
     echo -e "${CYAN}  - vath-cleanup    Clean cache and temp files${RESET}\n"
 }
 
 # Performance tuning
 optimize_system() {
-    echo -e "${BOLD}${CYAN}🚀 System Optimization${RESET}\n"
+    echo -e "${BOLD}${YELLOW}[9/9] System Optimization${RESET}\n"
     
     echo -en "${CYAN}Apply system optimizations? (y/N): ${RESET}"
     read -r response
@@ -589,14 +578,12 @@ optimize_system() {
         return
     fi
     
-    # Increase file descriptor limits
     if command -v ulimit >/dev/null 2>&1; then
         ulimit -n 65536 2>/dev/null && \
             echo -e "${GREEN}✓ Increased file descriptor limit${RESET}" || \
             echo -e "${YELLOW}⚠️  Could not increase file descriptor limit${RESET}"
     fi
     
-    # Optimize TCP settings for transfers (requires root)
     if [[ $EUID -eq 0 ]]; then
         sysctl -w net.core.rmem_max=134217728 2>/dev/null
         sysctl -w net.core.wmem_max=134217728 2>/dev/null
@@ -613,26 +600,29 @@ finalize() {
     echo -e "\n${BOLD}${GREEN}╔═══════════════════════════════════════════════════════════╗${RESET}"
     echo -e "${BOLD}${GREEN}║                                                           ║${RESET}"
     echo -e "${BOLD}${GREEN}║        Installation Complete! 🎉                          ║${RESET}"
-    echo -e "${BOLD}${GREEN}║        VathysEye 5.0 is ready to use                      ║${RESET}"
+    echo -e "${BOLD}${GREEN}║        VathysEye 5.1 is ready to use                      ║${RESET}"
     echo -e "${BOLD}${GREEN}║                                                           ║${RESET}"
     echo -e "${BOLD}${GREEN}╚═══════════════════════════════════════════════════════════╝${RESET}\n"
     
     echo -e "${BOLD}${CYAN}🚀 QUICK START:${RESET}"
     echo -e "${YELLOW}  vath${RESET}                          Launch interactive mode"
-    echo -e "${YELLOW}  vath search vacation${RESET}          Search for files"
-    echo -e "${YELLOW}  vath ssh-connect${RESET}              Connect to SSH server"
-    echo -e "${YELLOW}  vath help${RESET}                     Show full help\n"
+    echo -e "${YELLOW}  vath mass-copy /src /dst DIR${RESET}  Mass copy with exclusions"
+    echo -e "${YELLOW}  vath update${RESET}                    Check and install updates"
+    echo -e "${YELLOW}  vath help${RESET}                      Show full help\n"
     
     echo -e "${BOLD}${CYAN}⚡ SHELL ALIASES:${RESET} ${MAGENTA}(run: source ${shell_rc})${RESET}"
-    echo -e "${YELLOW}  vf${RESET} <pattern>                  Quick file search"
-    echo -e "${YELLOW}  vx${RESET} <archive>                  Quick extract"
-    echo -e "${YELLOW}  vz${RESET} <output> <files>           Quick compress"
-    echo -e "${YELLOW}  vssh${RESET}                          Quick SSH connect"
-    echo -e "${YELLOW}  vup${RESET} <local> <remote>          Quick upload"
-    echo -e "${YELLOW}  vdown${RESET} <remote> <local>        Quick download\n"
+    echo -e "${YELLOW}  vmc${RESET} <src> <dst> [exclude]      Quick mass copy"
+    echo -e "${YELLOW}  vf${RESET} <pattern>                   Quick file search"
+    echo -e "${YELLOW}  vupdate${RESET}                        Quick update check"
+    echo -e "${YELLOW}  vssh${RESET}                           Quick SSH connect\n"
+    
+    echo -e "${BOLD}${CYAN}🆕 NEW FEATURES (v5.1):${RESET}"
+    echo -e "  ${GREEN}✓${RESET} Mass copy with pattern-based exclusions"
+    echo -e "  ${GREEN}✓${RESET} Auto-update system with GitHub integration"
+    echo -e "  ${GREEN}✓${RESET} Enhanced rsync integration for speed"
+    echo -e "  ${GREEN}✓${RESET} Improved configuration management\n"
     
     echo -e "${BOLD}${CYAN}🔧 HELPER SCRIPTS:${RESET}"
-    echo -e "${YELLOW}  ${VATHYS_HOME}/bin/vath-update${RESET}       Update VathysEye"
     echo -e "${YELLOW}  ${VATHYS_HOME}/bin/vath-benchmark${RESET}    Run benchmarks"
     echo -e "${YELLOW}  ${VATHYS_HOME}/bin/vath-cleanup${RESET}      Clean cache\n"
     
@@ -641,11 +631,6 @@ finalize() {
     echo -e "${YELLOW}  Logs:${RESET}     ${VATHYS_HOME}/logs/"
     echo -e "${YELLOW}  SSH:${RESET}      ${VATHYS_HOME}/sessions/ssh/\n"
     
-    echo -e "${BOLD}${CYAN}📚 DOCUMENTATION:${RESET}"
-    echo -e "  README:    ${CYAN}https://github.com/0xb0rn3/vathyseye${RESET}"
-    echo -e "  Issues:    ${CYAN}https://github.com/0xb0rn3/vathyseye/issues${RESET}\n"
-    
-    # Show system info
     echo -e "${BOLD}${CYAN}💻 SYSTEM INFO:${RESET}"
     echo -e "  OS:        ${OS_TYPE}"
     echo -e "  Package:   ${PACKAGE_MANAGER}"
@@ -653,275 +638,19 @@ finalize() {
     echo -e "  Threads:   $(nproc 2>/dev/null || sysctl -n hw.ncpu 2>/dev/null || echo 'unknown')"
     echo -e "  Version:   ${SCRIPT_VERSION}\n"
     
-    echo -e "${BOLD}${YELLOW}⚡ VathysEye 5.0 - If it exists, we'll find it! ⚡${RESET}\n"
+    echo -e "${BOLD}${YELLOW}⚡ VathysEye 5.1 - Mass Copy, Auto-Update, Blazing Fast! ⚡${RESET}\n"
     
-    # First-run tips
     echo -e "${BOLD}${MAGENTA}💡 TIPS:${RESET}"
-    echo -e "  • Run 'vath-benchmark' to test performance"
+    echo -e "  • Run 'vath update' to check for updates"
+    echo -e "  • Use 'vmc' alias for quick mass copy operations"
     echo -e "  • Configure SSH keys for password-less authentication"
-    echo -e "  • Adjust ${VATHYS_HOME}/config/vathys.conf to your needs"
-    echo -e "  • Use 'vath -h' for complete command reference\n"
-}
-
-# Uninstall function
-uninstall() {
-    echo -e "${BOLD}${RED}🗑️  VathysEye Uninstallation${RESET}\n"
-    
-    echo -e "${YELLOW}This will remove:${RESET}"
-    echo -e "  • Binary: ${INSTALL_DIR}/vath"
-    echo -e "  • Config: ${VATHYS_HOME}"
-    echo -e "  • Shell aliases\n"
-    
-    echo -en "${RED}Are you sure? (type 'yes' to confirm): ${RESET}"
-    read -r confirm
-    
-    if [[ "${confirm}" != "yes" ]]; then
-        echo -e "${GREEN}Uninstall cancelled${RESET}"
-        exit 0
-    fi
-    
-    # Remove binary
-    if [[ -f "${INSTALL_DIR}/vath" ]]; then
-        if [[ -w "${INSTALL_DIR}" ]]; then
-            rm "${INSTALL_DIR}/vath"
-        else
-            sudo rm "${INSTALL_DIR}/vath"
-        fi
-        echo -e "${GREEN}✓ Removed binary${RESET}"
-    fi
-    
-    # Remove configuration directory
-    echo -en "${YELLOW}Remove configuration directory ${VATHYS_HOME}? (y/N): ${RESET}"
-    read -r response
-    
-    if [[ "$response" =~ ^[Yy]$ ]]; then
-        rm -rf "${VATHYS_HOME}"
-        echo -e "${GREEN}✓ Removed configuration${RESET}"
-    else
-        echo -e "${CYAN}ℹ️  Configuration preserved${RESET}"
-    fi
-    
-    # Remove shell aliases
-    for rc_file in ~/.bashrc ~/.zshrc ~/.config/fish/config.fish; do
-        if [[ -f "${rc_file}" ]]; then
-            if grep -q "# VathysEye" "${rc_file}"; then
-                echo -en "${YELLOW}Remove aliases from ${rc_file}? (y/N): ${RESET}"
-                read -r response
-                
-                if [[ "$response" =~ ^[Yy]$ ]]; then
-                    sed -i.bak '/# VathysEye/,/^$/d' "${rc_file}"
-                    echo -e "${GREEN}✓ Removed aliases from ${rc_file}${RESET}"
-                fi
-            fi
-        fi
-    done
-    
-    echo -e "\n${GREEN}✓ VathysEye uninstalled${RESET}"
-    echo -e "${CYAN}Thank you for using VathysEye!${RESET}\n"
-}
-
-# Repair/reinstall function
-repair() {
-    echo -e "${BOLD}${CYAN}🔧 VathysEye Repair Mode${RESET}\n"
-    
-    echo -e "${YELLOW}This will:${RESET}"
-    echo -e "  • Recompile C helpers"
-    echo -e "  • Restore default configuration"
-    echo -e "  • Fix permissions"
-    echo -e "  • Clean cache\n"
-    
-    echo -en "${CYAN}Continue with repair? (y/N): ${RESET}"
-    read -r response
-    
-    if [[ ! "$response" =~ ^[Yy]$ ]]; then
-        return
-    fi
-    
-    # Fix permissions
-    chmod 755 "${VATHYS_HOME}"
-    chmod 700 "${VATHYS_HOME}/sessions"
-    chmod -R u+w "${VATHYS_HOME}"
-    echo -e "${GREEN}✓ Fixed permissions${RESET}"
-    
-    # Clean cache
-    rm -rf "${VATHYS_HOME}/cache"/*
-    rm -rf "${VATHYS_HOME}/temp"/*
-    echo -e "${GREEN}✓ Cleaned cache${RESET}"
-    
-    # Recompile helpers
-    if [[ -f "${INSTALL_DIR}/vath" ]]; then
-        rm -f "${VATHYS_HOME}/bin/fileops"
-        rm -f "${VATHYS_HOME}/bin/fasttransfer"
-        echo -e "${GREEN}✓ Helpers will recompile on next run${RESET}"
-    fi
-    
-    # Restore config
-    if [[ ! -f "${VATHYS_HOME}/config/vathys.conf" ]]; then
-        create_config
-    fi
-    
-    echo -e "\n${GREEN}✓ Repair complete${RESET}\n"
-}
-
-# Update function
-update_vathyseye() {
-    echo -e "${BOLD}${CYAN}🔄 VathysEye Update${RESET}\n"
-    
-    if [[ ! -d .git ]]; then
-        echo -e "${YELLOW}⚠️  Not a git repository${RESET}"
-        echo -e "${CYAN}Please download the latest version from:${RESET}"
-        echo -e "${CYAN}https://github.com/0xb0rn3/vathyseye${RESET}\n"
-        return
-    fi
-    
-    echo -e "${CYAN}Checking for updates...${RESET}"
-    
-    git fetch origin
-    
-    local_version=$(git rev-parse HEAD)
-    remote_version=$(git rev-parse origin/main)
-    
-    if [[ "${local_version}" == "${remote_version}" ]]; then
-        echo -e "${GREEN}✓ Already up to date${RESET}\n"
-        return
-    fi
-    
-    echo -e "${YELLOW}Update available!${RESET}"
-    echo -en "${CYAN}Update now? (y/N): ${RESET}"
-    read -r response
-    
-    if [[ "$response" =~ ^[Yy]$ ]]; then
-        git pull origin main
-        ./run
-    fi
-}
-
-# System compatibility check
-check_compatibility() {
-    echo -e "${BOLD}${CYAN}🔍 System Compatibility Check${RESET}\n"
-    
-    local issues=0
-    
-    # Check kernel version (Linux)
-    if [[ "$OS_TYPE" != "macos" ]]; then
-        local kernel_version=$(uname -r | cut -d. -f1-2)
-        echo -e "${CYAN}Kernel: ${kernel_version}${RESET}"
-        
-        if [[ $(echo "${kernel_version} < 3.0" | bc 2>/dev/null || echo 0) -eq 1 ]]; then
-            echo -e "${YELLOW}⚠️  Kernel version may be too old${RESET}"
-            ((issues++))
-        fi
-    fi
-    
-    # Check available memory
-    local mem_total
-    if [[ "$OS_TYPE" == "macos" ]]; then
-        mem_total=$(sysctl -n hw.memsize | awk '{print int($1/1024/1024)}')
-    else
-        mem_total=$(grep MemTotal /proc/meminfo | awk '{print int($2/1024)}')
-    fi
-    
-    echo -e "${CYAN}Memory: ${mem_total} MB${RESET}"
-    
-    if [[ ${mem_total} -lt 512 ]]; then
-        echo -e "${YELLOW}⚠️  Low memory, performance may be limited${RESET}"
-        ((issues++))
-    fi
-    
-    # Check CPU threads
-    local cpu_threads
-    if [[ "$OS_TYPE" == "macos" ]]; then
-        cpu_threads=$(sysctl -n hw.ncpu)
-    else
-        cpu_threads=$(nproc)
-    fi
-    
-    echo -e "${CYAN}CPU Threads: ${cpu_threads}${RESET}"
-    
-    if [[ ${cpu_threads} -lt 2 ]]; then
-        echo -e "${YELLOW}⚠️  Single-threaded CPU, performance will be limited${RESET}"
-        ((issues++))
-    fi
-    
-    # Check disk space
-    local disk_space=$(df -h "${HOME}" | awk 'NR==2 {print $4}')
-    echo -e "${CYAN}Available Disk Space: ${disk_space}${RESET}"
-    
-    # Check network connectivity for SSH features
-    if ping -c 1 -W 2 8.8.8.8 >/dev/null 2>&1; then
-        echo -e "${GREEN}✓ Network connectivity available${RESET}"
-    else
-        echo -e "${YELLOW}⚠️  Network connectivity issues detected${RESET}"
-        ((issues++))
-    fi
-    
-    echo ""
-    
-    if [[ ${issues} -eq 0 ]]; then
-        echo -e "${GREEN}✓ System is compatible${RESET}\n"
-    else
-        echo -e "${YELLOW}⚠️  ${issues} compatibility issue(s) found${RESET}"
-        echo -e "${CYAN}VathysEye will still work but performance may be affected${RESET}\n"
-    fi
-}
-
-# Show system info
-show_info() {
-    echo -e "${BOLD}${CYAN}ℹ️  VathysEye System Information${RESET}\n"
-    
-    if [[ ! -x "${INSTALL_DIR}/vath" ]]; then
-        echo -e "${RED}✗ VathysEye is not installed${RESET}\n"
-        return
-    fi
-    
-    echo -e "${BOLD}Installation:${RESET}"
-    echo -e "  Binary:    ${INSTALL_DIR}/vath"
-    echo -e "  Config:    ${VATHYS_HOME}"
-    echo -e "  Version:   ${SCRIPT_VERSION}\n"
-    
-    echo -e "${BOLD}Features:${RESET}"
-    [[ -x "${VATHYS_HOME}/bin/fileops" ]] && \
-        echo -e "  ${GREEN}✓${RESET} Search Engine (C)" || \
-        echo -e "  ${YELLOW}○${RESET} Search Engine (Bash fallback)"
-    
-    [[ -x "${VATHYS_HOME}/bin/fasttransfer" ]] && \
-        echo -e "  ${GREEN}✓${RESET} Transfer Engine (C)" || \
-        echo -e "  ${YELLOW}○${RESET} Transfer Engine (disabled)"
-    
-    command -v ssh >/dev/null 2>&1 && \
-        echo -e "  ${GREEN}✓${RESET} SSH/SFTP Support" || \
-        echo -e "  ${RED}✗${RESET} SSH/SFTP Support"
-    
-    command -v zip >/dev/null 2>&1 && \
-        echo -e "  ${GREEN}✓${RESET} ZIP Support" || \
-        echo -e "  ${YELLOW}○${RESET} ZIP Support"
-    
-    command -v 7z >/dev/null 2>&1 && \
-        echo -e "  ${GREEN}✓${RESET} 7z Support" || \
-        echo -e "  ${YELLOW}○${RESET} 7z Support"
-    
-    command -v unrar >/dev/null 2>&1 && \
-        echo -e "  ${GREEN}✓${RESET} RAR Support" || \
-        echo -e "  ${YELLOW}○${RESET} RAR Support"
-    
-    echo ""
-    
-    if [[ -d "${VATHYS_HOME}/cache" ]]; then
-        local cache_size=$(du -sh "${VATHYS_HOME}/cache" 2>/dev/null | cut -f1)
-        echo -e "${BOLD}Cache:${RESET} ${cache_size}"
-    fi
-    
-    if [[ -d "${VATHYS_HOME}/logs" ]]; then
-        local log_count=$(find "${VATHYS_HOME}/logs" -type f 2>/dev/null | wc -l)
-        echo -e "${BOLD}Logs:${RESET} ${log_count} files\n"
-    fi
+    echo -e "  • Adjust ${VATHYS_HOME}/config/vathys.conf to your needs\n"
 }
 
 # Main installation flow
 main() {
     case "${1:-install}" in
         install)
-            check_compatibility
             check_dependencies
             setup_directories
             install_script
@@ -933,34 +662,17 @@ main() {
             optimize_system
             finalize
             ;;
-        uninstall)
-            uninstall
-            ;;
-        repair)
-            repair
-            ;;
-        update)
-            update_vathyseye
-            ;;
-        info)
-            show_info
-            ;;
         *)
-            echo -e "${BOLD}${CYAN}VathysEye 5.0 Installation Script${RESET}\n"
+            echo -e "${BOLD}${CYAN}VathysEye 5.1 Installation Script${RESET}\n"
             echo -e "${YELLOW}Usage:${RESET}"
             echo -e "  ./run [command]\n"
             echo -e "${YELLOW}Commands:${RESET}"
             echo -e "  ${CYAN}install${RESET}     Install VathysEye (default)"
-            echo -e "  ${CYAN}uninstall${RESET}   Uninstall VathysEye"
-            echo -e "  ${CYAN}repair${RESET}      Repair installation"
-            echo -e "  ${CYAN}update${RESET}      Update to latest version"
-            echo -e "  ${CYAN}info${RESET}        Show installation info"
             echo ""
             ;;
     esac
 }
 
-# Trap errors
-trap 'echo -e "\n${RED}❌ Installation failed at line $LINENO${RESET}"; exit 1' ERR
+trap 'echo -e "\n${RED}✖ Installation failed at line $LINENO${RESET}"; exit 1' ERR
 
 main "$@"
